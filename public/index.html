@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>لعبة القاتل - MM2</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+body { overflow: hidden; background: #000; font-family: 'Segoe UI', Tahoma, sans-serif; touch-action: none; }
+canvas { display: block; width: 100vw; height: 100vh; }
+
+#ui { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
+
+#loginScreen {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    background: linear-gradient(135deg, #1a1a2e, #16213e);
+    display: flex; justify-content: center; align-items: center; flex-direction: column;
+    pointer-events: auto; z-index: 100;
+}
+#loginScreen h1 { color: #fff; font-size: 48px; margin-bottom: 30px; text-shadow: 0 0 20px #ff4444; }
+#loginScreen input {
+    padding: 15px 25px; font-size: 20px; border: 2px solid #4CAF50;
+    border-radius: 10px; background: rgba(255,255,255,0.1); color: #fff;
+    margin: 10px; width: 300px; text-align: center;
+}
+#loginScreen input::placeholder { color: #aaa; }
+#loginBtn {
+    padding: 15px 50px; font-size: 22px; background: #4CAF50; color: #fff;
+    border: none; border-radius: 10px; cursor: pointer; margin-top: 20px;
+    font-weight: bold;
+}
+#loginBtn:hover { background: #45a049; }
+
+#role {
+    position: absolute; top: 20px; right: 20px;
+    background: rgba(0,0,0,0.8); color: #fff;
+    padding: 15px 25px; border-radius: 15px; font-size: 20px; font-weight: bold;
+    border: 3px solid #fff; display: none;
+}
+#role.murderer { background: linear-gradient(135deg, #ff0000, #8b0000); border-color: #ff4444; }
+#role.sheriff { background: linear-gradient(135deg, #0066ff, #003399); border-color: #4488ff; }
+#role.innocent { background: linear-gradient(135deg, #00aa00, #006600); border-color: #44ff44; }
+
+#players-count {
+    position: absolute; top: 20px; left: 20px;
+    background: rgba(0,0,0,0.8); color: #fff;
+    padding: 12px 20px; border-radius: 12px; font-size: 18px;
+    border: 2px solid #fff; display: none;
+}
+
+#startBtn {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    background: linear-gradient(135deg, #4CAF50, #2E7D32); color: #fff;
+    border: none; padding: 25px 60px; font-size: 32px; border-radius: 20px;
+    cursor: pointer; pointer-events: auto; display: none;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5); font-weight: bold;
+}
+#startBtn:hover { transform: translate(-50%, -50%) scale(1.1); }
+
+#crosshair {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    width: 30px; height: 30px; border: 3px solid white; border-radius: 50%;
+    display: none;
+}
+#crosshair::before, #crosshair::after {
+    content: ''; position: absolute; background: white;
+}
+#crosshair::before { width: 3px; height: 12px; top: 50%; left: 50%; transform: translate(-50%, -50%); }
+#crosshair::after { width: 12px; height: 3px; top: 50%; left: 50%; transform: translate(-50%, -50%); }
+
+#info {
+    position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+    background: rgba(0,0,0,0.8); color: #fff;
+    padding: 12px 24px; border-radius: 10px; font-size: 14px; display: none;
+}
+
+#gameOver {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.95); display: none;
+    justify-content: center; align-items: center; flex-direction: column;
+    color: #fff; pointer-events: auto;
+}
+#gameOver h1 { font-size: 64px; margin-bottom: 20px; }
+#gameOver button {
+    background: #4CAF50; color: #fff; border: none;
+    padding: 20px 50px; font-size: 24px; border-radius: 15px;
+    cursor: pointer; font-weight: bold;
+}
+
+#mobileControls {
+    position: absolute; bottom: 20px; left: 20px;
+    display: none; pointer-events: auto;
+}
+.mobile-btn {
+    position: absolute; width: 60px; height: 60px;
+    background: rgba(255,255,255,0.3); border: 2px solid rgba(255,255,255,0.5);
+    border-radius: 50%; color: #fff; font-size: 24px; font-weight: bold;
+    display: flex; justify-content: center; align-items: center;
+    user-select: none;
+}
+#btnUp { left: 70px; top: -70px; }
+#btnDown { left: 70px; top: 70px; }
+#btnLeft { left: 0; top: 0; }
+#btnRight { left: 140px; top: 0; }
+
+#attackBtn {
+    position: absolute; bottom: 50px; right: 30px;
+    width: 80px; height: 80px;
+    background: rgba(255,0,0,0.5); border: 3px solid #ff4444;
+    border-radius: 50%; color: #fff; font-size: 30px;
+    display: none; pointer-events: auto;
+    justify-content: center; align-items: center;
+}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<div id="ui">
+    <div id="loginScreen">
+        <h1>🔪 لعبة القاتل</h1>
+        <input type="text" id="playerName" placeholder="اسمك" maxlength="15">
+        <input type="text" id="roomCode" placeholder="كود الغرفة (مثال: ABCD)" maxlength="6" style="text-transform: uppercase;">
+        <button id="loginBtn">🚪 ادخل اللعبة</button>
+        <p style="color:#aaa; margin-top:20px;">شارك كود الغرفة مع أصحابك!</p>
+    </div>
+
+    <div id="role"></div>
+    <div id="players-count">👥 اللاعبين: 0</div>
+    <button id="startBtn">🎮 ابدأ اللعبة</button>
+    <div id="crosshair"></div>
+    <div id="info">WASD للحركة | الماوس للنظر | كليك للهجوم</div>
+
+    <div id="mobileControls">
+        <div class="mobile-btn" id="btnUp">↑</div>
+        <div class="mobile-btn" id="btnDown">↓</div>
+        <div class="mobile-btn" id="btnLeft">←</div>
+        <div class="mobile-btn" id="btnRight">→</div>
+    </div>
+    <div id="attackBtn">️</div>
+</div>
+
+<div id="gameOver">
+    <h1 id="goTitle"></h1>
+    <p id="goSub"></p>
+    <button onclick="location.reload()">🔄 العب تاني</button>
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+const socket = io();
+let scene, camera, renderer, myRole = '', gameStarted = false, locked = false;
+let moveF=0, moveB=0, moveL=0, moveR=0;
+let vel = new THREE.Vector3(), euler = new THREE.Euler(0,0,0,'YXZ');
+let others = {}, prevT = performance.now();
+let isMobile = /Android|iPhone|iPad|iPod|webOS|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
+if (isMobile) {
+    document.getElementById('mobileControls').style.display = 'block';
+    document.getElementById('attackBtn').style.display = 'flex';
+    document.getElementById('info').textContent = 'استخدم الأزرار للتحكم';
+}
+
+scene = new THREE.Scene();
+scene.background = new THREE.Color(0x87CEEB);
+scene.fog = new THREE.FogExp2(0x87CEEB, 0.008);
+
+camera = new THREE.PerspectiveCamera(75, innerWidth/innerHeight, 0.1, 500);
+camera.position.set(0, 8, 0);
+
+renderer = new THREE.WebGLRenderer({canvas: document.getElementById('c'), antialias: true});
+renderer.setSize(innerWidth, innerHeight);
+renderer.shadowMap.enabled = true;
+
+scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+const sun = new THREE.DirectionalLight(0xffffff, 0.9);
+sun.position.set(50, 80, 30);
+sun.castShadow = true;
+scene.add(sun);
+
+const ground = new THREE.Mesh(
+    new THREE.PlaneGeometry(200, 200),
+    new THREE.MeshStandardMaterial({color: 0x4a8c3f})
+);
+ground.rotation.x = -Math.PI/2;
+ground.receiveShadow = true;
+scene.add(ground);
+
+const colors = [0xff6b6b, 0x4ecdc4, 0xffe66d, 0xa8e6cf, 0xff8b94, 0xc7ceea, 0xffd93d, 0x6bcf7f];
+for(let i = 0; i < 25; i++){
+    const w = 4+Math.random()*8, h = 4+Math.random()*12, d = 4+Math.random()*8;
+    const b = new THREE.Mesh(
+        new THREE.BoxGeometry(w, h, d),
+        new THREE.MeshStandardMaterial({color: colors[i%colors.length]})
+    );
+    b.position.set((Math.random()-.5)*160, h/2, (Math.random()-.5)*160);
+    b.castShadow = true;
+    scene.add(b);
+}
+
+for(let i = 0; i < 30; i++){
+    const trunk = new THREE.Mesh(new THREE.CylinderGeometry(.3,.4,4), new THREE.MeshStandardMaterial({color:0x8B4513}));
+    const leaves = new THREE.Mesh(new THREE.SphereGeometry(2.5,8,6), new THREE.MeshStandardMaterial({color:0x228B22}));
+    trunk.position.set((Math.random()-.5)*180, 2, (Math.random()-.5)*180);
+    leaves.position.copy(trunk.position);
+    leaves.position.y = 5.5;
+    trunk.castShadow = true;
+    leaves.castShadow = true;
+    scene.add(trunk, leaves);
+}
+
+function makePlayerMesh(id) {
+    const g = new THREE.Group();
+    const body = new THREE.Mesh(
+        new THREE.CapsuleGeometry(1, 2.5, 4, 8),
+        new THREE.MeshStandardMaterial({color: 0xff8800})
+    );
+    body.position.y = 2.5; body.castShadow = true;
+    const head = new THREE.Mesh(
+        new THREE.SphereGeometry(.8, 8, 8),
+        new THREE.MeshStandardMaterial({color: 0xffcc88})
+    );
+    head.position.y = 5; head.castShadow = true;
+    g.add(body, head);
+    scene.add(g);
+    return g;
+}
+
+document.getElementById('loginBtn').addEventListener('click', () => {
+    const name = document.getElementById('playerName').value.trim() || 'لاعب';
+    const code = document.getElementById('roomCode').value.trim().toUpperCase();
+    if (!code) { alert('اكتب كود الغرفة!'); return; }
+    socket.emit('joinRoom', { roomCode: code, playerName: name });
+});
+
+socket.on('joinedRoom', (data) => {
+    document.getElementById('loginScreen').style.display = 'none';
+    document.getElementById('players-count').style.display = 'block';
+    document.getElementById('info').style.display = 'block';
+    Object.values(data.players).forEach(p => {
+        if (p.id !== socket.id && !others[p.id]) {
+            others[p.id] = { mesh: makePlayerMesh(p.id), alive: true, name: p.name };
+            others[p.id].mesh.position.set(p.position.x, 0, p.position.z);
+        }
+    });
+    updateCount();
+    if (!data.started) {
+        document.getElementById('startBtn').style.display = 'block';
+    }
+});
+
+if (!isMobile) {
+    document.addEventListener('click', () => {
+        if (!locked && gameStarted) document.body.requestPointerLock();
+        else if (locked) attack();
+    });
+    document.addEventListener('pointerlockchange', () => {
+        locked = !!document.pointerLockElement;
+        document.getElementById('crosshair').style.display = locked ? 'block' : 'none';
+    });
+    document.addEventListener('mousemove', e => {
+        if (!locked) return;
+        euler.setFromQuaternion(camera.quaternion);
+        euler.y -= e.movementX * 0.002;
+        euler.x -= e.movementY * 0.002;
+        euler.x = Math.max(-1.4, Math.min(1.4, euler.x));
+        camera.quaternion.setFromEuler(euler);
+    });
+}
+
+document.addEventListener('keydown', e => {
+    if (e.code==='KeyW') moveF=1; if (e.code==='KeyS') moveB=1;
+    if (e.code==='KeyA') moveL=1; if (e.code==='KeyD') moveR=1;
+});
+document.addEventListener('keyup', e => {
+    if (e.code==='KeyW') moveF=0; if (e.code==='KeyS') moveB=0;
+    if (e.code==='KeyA') moveL=0; if (e.code==='KeyD') moveR=0;
+});
+
+function setupMobileBtn(id, key) {
+    const btn = document.getElementById(id);
+    btn.addEventListener('touchstart', (e) => { e.preventDefault(); key(1); });
+    btn.addEventListener('touchend', (e) => { e.preventDefault(); key(0); });
+}
+setupMobileBtn('btnUp', v => moveF = v);
+setupMobileBtn('btnDown', v => moveB = v);
+setupMobileBtn('btnLeft', v => moveL = v);
+setupMobileBtn('btnRight', v => moveR = v);
+
+document.getElementById('attackBtn').addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    if (isMobile) attack();
+});
+
+let touchStartX = 0, touchStartY = 0;
+document.addEventListener('touchstart', e => {
+    if (e.target.closest('#mobileControls') || e.target.closest('#attackBtn') || e.target.closest('#loginScreen')) return;
+    touchStartX = e.touches[0].clientX;
+    touchStartY = e.touches[0].clientY;
+});
+document.addEventListener('touchmove', e => {
+    if (e.target.closest('#mobileControls') || e.target.closest('#attackBtn')) return;
+    const dx = e.touches[0].clientX - touchStartX;
+    const dy = e.touches[0].clientY - touchStartY;
+    euler.setFromQuaternion(camera.quaternion);
+    euler.y -= dx * 0.005;
+    euler.x -= dy * 0.005;
+    euler.x = Math.max(-1.4, Math.min(1.4, euler.x));
+    camera.quaternion.setFromEuler(euler);
+    touchStartX = e.touches[0].clientX;
+    touchStartY = e.touches[0].clientY;
+});
+
+window.addEventListener('resize', () => {
+    camera.aspect = innerWidth/innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(innerWidth, innerHeight);
+});
+
+function attack() {
+    if (!gameStarted || myRole==='innocent') return;
+    const ray = new THREE.Raycaster();
+    ray.setFromCamera(new THREE.Vector2(0,0), camera);
+    const meshes = Object.entries(others).filter(([id,o]) => o.alive).map(([id,o]) => ({id, mesh: o.mesh}));
+    const targets = meshes.map(m => m.mesh.children).flat();
+    const hits = ray.intersectObjects(targets);
+    if (hits.length > 0 && hits[0].distance < 30) {
+        const hitMesh = hits[0].object.parent;
+        const target = meshes.find(m => m.mesh === hitMesh);
+        if (target) {
+            if (myRole==='murderer') socket.emit('kill', target.id);
+            else if (myRole==='sheriff') socket.emit('shoot', target.id);
+        }
+    }
+}
+
+socket.on('playerJoined', p => {
+    if (!others[p.id]) {
+        others[p.id] = { mesh: makePlayerMesh(p.id), alive: true, name: p.name };
+        others[p.id].mesh.position.set(p.position.x, 0, p.position.z);
+    }
+    updateCount();
+});
+
+socket.on('playerMoved', d => {
+    if (others[d.id]) {
+        others[d.id].mesh.position.set(d.data.position.x, 0, d.data.position.z);
+        others[d.id].mesh.rotation.y = d.data.rotation;
+    }
+});
+
+socket.on('roleAssigned', role => {
+    myRole = role; gameStarted = true;
+    const r = document.getElementById('role');
+    r.style.display = 'block';
+    r.className = role;
+    document.getElementById('startBtn').style.display = 'none';
+    if (role==='murderer') r.textContent=' أنت القاتل! اقتل الكل!';
+    else if (role==='sheriff') r.textContent='🔫 أنت الشرطي! اقتل القاتل!';
+    else r.textContent='🏃 أنت بريء! اهرب!';
+});
+
+socket.on('gameStarted', () => { gameStarted = true; });
+
+socket.on('playerKilled', id => {
+    if (others[id]) { others[id].mesh.visible = false; others[id].alive = false; }
+    updateCount();
+});
+
+socket.on('gameOver', winner => {
+    const go = document.getElementById('gameOver');
+    go.style.display = 'flex';
+    const t = document.getElementById('goTitle');
+    const s = document.getElementById('goSub');
+    if (winner==='murderer') { t.textContent='🔪 القاتل فاز!'; t.style.color='red'; s.textContent='القاتل قتل الجميع!'; }
+    else if (winner==='sheriff') { t.textContent='🔫 الشرطي فاز!'; t.style.color='#4af'; s.textContent='الشرطي قتل القاتل!'; }
+    else { t.textContent='💀 الشرطي أخطأ!'; t.style.color='orange'; s.textContent='الشرطي قتل بريء! القاتل فاز!'; }
+});
+
+socket.on('playerDisconnected', id => {
+    if (others[id]) { scene.remove(others[id].mesh); delete others[id]; }
+    updateCount();
+});
+
+socket.on('needMorePlayers', n => {
+    alert('محتاج على الأقل 3 لاعبين! الموجودين: ' + n);
+});
+
+function updateCount() {
+    const alive = Object.values(others).filter(o => o.alive).length;
+    document.getElementById('players-count').textContent = '👥 اللاعبين: ' + alive;
+}
+
+document.getElementById('startBtn').addEventListener('click', () => socket.emit('startGame'));
+
+function animate() {
+    requestAnimationFrame(animate);
+    const now = performance.now(), dt = Math.min((now - prevT)/1000, 0.1);
+    prevT = now;
+
+    if (gameStarted) {
+        vel.x -= vel.x * 10 * dt;
+        vel.z -= vel.z * 10 * dt;
+        const dir = new THREE.Vector3(
+            Number(moveR) - Number(moveL), 0, Number(moveF) - Number(moveB)
+        ).normalize();
+        if (moveF||moveB) vel.z -= dir.z * 400 * dt;
+        if (moveL||moveR) vel.x -= dir.x * 400 * dt;
+        const mv = vel.clone().multiplyScalar(dt).applyQuaternion(camera.quaternion);
+        mv.y = 0;
+        camera.position.add(mv);
+        camera.position.y = 8;
+        camera.position.x = Math.max(-95, Math.min(95, camera.position.x));
+        camera.position.z = Math.max(-95, Math.min(95, camera.position.z));
+
+        socket.emit('playerMovement', {
+            position: {x: camera.position.x, y: 8, z: camera.position.z},
+            rotation: euler.y
+        });
+    }
+    renderer.render(scene, camera);
+}
+animate();
+</script>
+</body>
+</html>
